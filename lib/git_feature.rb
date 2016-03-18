@@ -1,5 +1,2 @@
-class GitFeature
-  def self.test
-    "Hi"
-  end
-end
+require 'git_feature/branch'
+require 'git_feature/github_issue'

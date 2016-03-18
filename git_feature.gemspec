@@ -10,4 +10,9 @@ Gem::Specification.new do |s|
   s.executables << 'git_feature'
   s.homepage    = 'http://rubygems.org/gems/git_feature'
   s.license     = 'MIT'
+
+  s.add_runtime_dependency 'github_api', '~> 0.13'
+
+  s.add_development_dependency 'vcr', '~> 3.0'
+  # s.add_development_dependency 'webmock', '~> 1.24'
 end

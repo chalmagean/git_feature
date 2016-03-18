@@ -1,4 +1,58 @@
 #!/usr/bin/env ruby
 
+require 'yaml'
+require 'optparse'
+require 'github_api'
+require 'readline'
+require 'io/console'
 require 'git_feature'
-GitTicket.test
+
+CONFIG_FILE = File.join(ENV['HOME'], '.git_feature.rc.yaml')
+
+options = {}
+
+option_parser = OptionParser.new do |opts|
+  opts.on("-o OAUTH_TOKEN") do |password|
+    options[:oauth_token] = password
+  end
+end
+
+option_parser.parse!
+
+if File.exists? CONFIG_FILE
+  config_options = YAML.load_file(CONFIG_FILE)
+  options.merge!(config_options)
+else
+  File.open(CONFIG_FILE, 'w') { |file| YAML::dump(options, file) }
+  STDERR.puts "Initialized configuration file in #{CONFIG_FILE}"
+end
+
+unless options[:oauth_token]
+  user = Readline.readline("Github username: ", true)
+  if STDIN.respond_to?(:noecho)
+    print "Github password: "
+    password = STDIN.noecho(&:gets).chomp
+  end
+
+  raise ArgumentError 'Please provide your Github credentials' unless user && password
+
+  github = Github.new(basic_auth: "#{user}:#{password}")
+
+  begin
+    response = github.oauth.create scopes: ['repo'], note: 'git_feature script'
+    options[:oauth_token] = response.token
+    File.open(CONFIG_FILE, 'w') { |file| YAML::dump(options, file) }
+  rescue Github::Error::UnprocessableEntity => e
+    puts "\nCan't create OAuth token: #{e}\n"
+    puts "Remove any existing tokens labeled 'git_feature script' at https://github.com/settings/tokens"
+    exit
+  end
+end
+
+raise(ArgumentError, 'Please provide a Github issue url') unless ARGV[0]
+
+github = Github.new(oauth_token: options[:oauth_token])
+issue = GitFeature::GithubIssue.fetch_issue(ARGV[0], github)
+branch_name = GitFeature::Branch.format(issue.title, issue.number)
+$stdout.print branch_name
+$stdout.flush
